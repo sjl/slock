@@ -300,7 +300,7 @@ lockscreen(Display *dpy, struct xrandr *rr, int screen)
 static void
 usage(void)
 {
-	die("usage: slock [-v] [cmd [arg ...]]\n");
+	die("usage: slock [-v] [post-lock-cmd [post-unlock-cmd]]\n");
 }
 
 int
@@ -376,20 +376,42 @@ main(int argc, char **argv) {
 
 	/* run post-lock command */
 	if (argc > 0) {
+		char *postLockCmd[2];
+		postLockCmd[0] = argv[0];
+                postLockCmd[1] = NULL;
+
 		switch (fork()) {
 		case -1:
 			die("slock: fork failed: %s\n", strerror(errno));
 		case 0:
 			if (close(ConnectionNumber(dpy)) < 0)
 				die("slock: close: %s\n", strerror(errno));
-			execvp(argv[0], argv);
-			fprintf(stderr, "slock: execvp %s: %s\n", argv[0], strerror(errno));
+			execvp(postLockCmd[0], postLockCmd);
+			fprintf(stderr, "slock: execvp %s: %s\n", postLockCmd[0], strerror(errno));
 			_exit(1);
 		}
 	}
 
 	/* everything is now blank. Wait for the correct password */
 	readpw(dpy, &rr, locks, nscreens, hash);
+
+	/* run post-unlock command */
+	if (argc > 1) {
+		char *postUnlockCmd[2];
+		postUnlockCmd[0] = argv[1];
+                postUnlockCmd[1] = NULL;
+
+		switch (fork()) {
+		case -1:
+			die("slock: fork failed: %s\n", strerror(errno));
+		case 0:
+			if (close(ConnectionNumber(dpy)) < 0)
+				die("slock: close: %s\n", strerror(errno));
+			execvp(postUnlockCmd[0], postUnlockCmd);
+			fprintf(stderr, "slock: execvp %s: %s\n", postUnlockCmd[0], strerror(errno));
+			_exit(1);
+		}
+	}
 
 	return 0;
 }
